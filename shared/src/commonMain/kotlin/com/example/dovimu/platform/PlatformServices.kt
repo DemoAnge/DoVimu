@@ -42,6 +42,17 @@ interface PlatformServices {
     fun openFile(uri: String, mime: String?): String?
     fun hasBrave(): Boolean
     fun openInBrave(url: String): Boolean
+    fun notifyDownload(
+        jobId: String,
+        title: String,
+        status: String,
+        progress: Int,
+        speedLabel: String? = null,
+        localUri: String? = null,
+        mime: String? = null,
+        error: String? = null,
+    )
+    fun cancelDownloadNotification(jobId: String)
 }
 
 expect fun createPlatformServices(): PlatformServices

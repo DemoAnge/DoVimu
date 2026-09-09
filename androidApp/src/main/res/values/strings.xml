@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">DoVimu</string>
+    <string name="startup_failed">DoVimu no pudo arrancar:\n%1$s</string>
 </resources>

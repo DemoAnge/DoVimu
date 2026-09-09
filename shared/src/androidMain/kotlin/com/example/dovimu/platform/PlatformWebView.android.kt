@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
-import android.graphics.Color
 import android.view.Gravity
 import android.view.ViewGroup
 import android.webkit.CookieManager
@@ -20,6 +19,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.graphics.toColorInt
+import com.example.dovimu.shared.R
 import org.json.JSONTokener
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -138,8 +139,8 @@ actual fun PlatformWebView(
                     )
                     gravity = Gravity.CENTER
                     setPadding(48, 48, 48, 48)
-                    setTextColor(Color.parseColor("#F5F5F7"))
-                    text = "No se pudo iniciar el navegador:\n${error.toUserMessage()}"
+                    setTextColor("#F5F5F7".toColorInt())
+                    text = context.getString(R.string.browser_start_failed, error.toUserMessage())
                 }
             }
         },

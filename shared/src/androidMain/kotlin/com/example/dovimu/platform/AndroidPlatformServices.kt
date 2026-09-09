@@ -42,6 +42,32 @@ actual fun createPlatformServices(): PlatformServices {
             }
         }
 
+        override fun notifyDownload(
+            jobId: String,
+            title: String,
+            status: String,
+            progress: Int,
+            speedLabel: String?,
+            localUri: String?,
+            mime: String?,
+            error: String?,
+        ) {
+            DownloadNotificationController.sync(
+                jobId = jobId,
+                title = title,
+                status = status,
+                progress = progress,
+                speedLabel = speedLabel,
+                localUri = localUri,
+                mime = mime,
+                error = error,
+            )
+        }
+
+        override fun cancelDownloadNotification(jobId: String) {
+            DownloadNotificationController.cancel(jobId)
+        }
+
         override fun hasBrave(): Boolean = BRAVE_PACKAGES.any { pkg ->
             runCatching { context.packageManager.getLaunchIntentForPackage(pkg) != null }.getOrDefault(false)
         }
@@ -52,13 +78,13 @@ actual fun createPlatformServices(): PlatformServices {
                 if (runCatching { context.packageManager.getLaunchIntentForPackage(pkg) }.getOrNull() == null) continue
                 val opened = runCatching {
                     val tabs = CustomTabsIntent.Builder().setShowTitle(true).build()
-                    tabs.intent.setPackage(pkg)
+                    tabs.intent.`package` = pkg
                     tabs.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     tabs.launchUrl(context, parsed)
                     true
                 }.recoverCatching {
                     val intent = Intent(Intent.ACTION_VIEW, parsed).apply {
-                        setPackage(pkg)
+                        `package` = pkg
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(intent)

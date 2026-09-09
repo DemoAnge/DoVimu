@@ -1,0 +1,19 @@
+<resources>
+    <string name="browser_start_failed">No se pudo iniciar el navegador:\n%1$s</string>
+    <string name="notification_channel_progress">Descargas en curso</string>
+    <string name="notification_channel_progress_desc">Progreso mientras se descarga un archivo</string>
+    <string name="notification_channel_done">Descargas completadas</string>
+    <string name="notification_channel_done_desc">Aviso cuando el archivo ya está guardado</string>
+    <string name="notification_placeholder">Descargando…</string>
+    <string name="notification_queued">En cola</string>
+    <string name="notification_downloading">Descargando %1$d%%</string>
+    <string name="notification_downloading_wait">Descargando…</string>
+    <string name="notification_processing">Procesando…</string>
+    <string name="notification_saving">Guardando %1$d%%</string>
+    <string name="notification_saving_wait">Guardando en el dispositivo…</string>
+    <string name="notification_progress_speed">%1$s · %2$s</string>
+    <string name="notification_multiple">%1$d descargas en curso</string>
+    <string name="notification_complete">Completado</string>
+    <string name="notification_complete_detail">Guardado en tu dispositivo</string>
+    <string name="notification_failed">No se pudo completar</string>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="notification_download">#FF6A00</color>
+    <color name="notification_complete">#3DDC97</color>
+    <color name="notification_failed">#FF5C7A</color>
+</resources>

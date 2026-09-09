@@ -55,7 +55,6 @@ import androidx.compose.ui.unit.sp
 import com.example.dovimu.data.QUICK_SITES
 import com.example.dovimu.data.QuickSite
 import com.example.dovimu.platform.PlatformWebView
-import com.example.dovimu.ui.quality.DownloadFlowScreen
 import com.example.dovimu.ui.theme.DoVimuColors
 import com.example.dovimu.viewmodel.DoVimuViewModel
 import com.example.dovimu.viewmodel.UiState
@@ -160,9 +159,6 @@ fun BrowserScreen(state: UiState, viewModel: DoVimuViewModel) {
             ) {
                 Icon(Icons.Default.Download, contentDescription = "Descargar video en reproducción")
             }
-        }
-        if (state.qualitySheetOpen) {
-            DownloadFlowScreen(state, viewModel)
         }
     }
 }

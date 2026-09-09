@@ -53,6 +53,7 @@ import com.example.dovimu.platform.createPlatformServices
 import com.example.dovimu.ui.browser.BrowserScreen
 import com.example.dovimu.ui.components.ErrorBanner
 import com.example.dovimu.ui.downloads.DownloadsScreen
+import com.example.dovimu.ui.quality.DownloadFlowSheet
 import com.example.dovimu.ui.search.SearchScreen
 import com.example.dovimu.ui.settings.SettingsSheet
 import com.example.dovimu.ui.theme.DoVimuColors
@@ -164,6 +165,9 @@ fun DoVimuApp(state: UiState, viewModel: DoVimuViewModel) {
     }
     if (state.settingsOpen) {
         SettingsSheet(state, viewModel)
+    }
+    if (state.qualitySheetOpen) {
+        DownloadFlowSheet(state, viewModel)
     }
 }
 

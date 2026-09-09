@@ -15,7 +15,7 @@ import com.example.dovimu.data.extractUrl
 import com.example.dovimu.data.isPlaylistUrl
 import com.example.dovimu.data.looksLikeUrl
 import com.example.dovimu.data.resolveAddress
-import com.example.dovimu.platform.FileMeta
+import com.example.dovimu.download.DownloadCoordinator
 import com.example.dovimu.platform.PlatformServices
 import com.example.dovimu.platform.WebNavAction
 import com.example.dovimu.platform.toUserMessage
@@ -23,11 +23,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 data class UiState(
@@ -68,7 +66,7 @@ class DoVimuViewModel(
 ) : ViewModel() {
     private val client = createHttpClient(platform.httpEngine)
     private val api = DoVimuApi(client) { _state.value.baseUrl }
-    private val savingIds = mutableSetOf<String>()
+    private val downloads = DownloadCoordinator.get(platform)
     private var inspectJob: Job? = null
     private var searchJob: Job? = null
 
@@ -76,6 +74,7 @@ class DoVimuViewModel(
         UiState(
             baseUrl = platform.settings.getBaseUrl(),
             braveInstalled = platform.hasBrave(),
+            jobs = downloads.jobs.value,
         ),
     )
     val state: StateFlow<UiState> = _state
@@ -89,16 +88,9 @@ class DoVimuViewModel(
 
     init {
         ping()
-        safeLaunch {
-            while (isActive) {
-                try {
-                    pollActiveJobs()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    _state.update { it.copy(error = e.toUserMessage()) }
-                }
-                delay(900)
+        viewModelScope.launch {
+            downloads.jobs.collect { jobs ->
+                _state.update { it.copy(jobs = jobs) }
             }
         }
     }
@@ -321,27 +313,23 @@ class DoVimuViewModel(
     }
 
     fun download(quality: QualityOption) {
-        val media = _state.value.media ?: return
-        val url = media.webpageUrl.ifBlank { extractUrl(_state.value.url) }
+        val media = _state.value.media
+        if (media == null) {
+            _state.update { it.copy(error = "Todavía no hay un video para descargar.") }
+            return
+        }
+        val url = media.webpageUrl
+            .ifBlank { extractUrl(_state.value.url) }
+            .ifBlank { extractUrl(_state.value.browserCurrentUrl) }
+        if (!looksLikeUrl(url)) {
+            _state.update { it.copy(error = "No hay un enlace válido para descargar.") }
+            return
+        }
         safeLaunch {
             try {
-                val created = api.startDownload(url, quality.id)
-                val item = DownloadItem(
-                    jobId = created.jobId,
-                    title = media.metadata?.title ?: media.title,
-                    qualityLabel = "${quality.label} · ${quality.ext.uppercase()}",
-                    kind = quality.kind,
-                    thumbnail = media.metadata?.thumbnail ?: media.thumbnail,
-                    status = created.status,
-                    progress = 0f,
-                    downloadUrl = created.fileUrl,
-                    artist = media.metadata?.artist,
-                    album = media.metadata?.album,
-                    metadata = media.metadata,
-                )
+                downloads.start(url, quality, media)
                 _state.update {
                     it.copy(
-                        jobs = listOf(item) + it.jobs,
                         tab = MainTab.Downloads,
                         qualitySheetOpen = false,
                         choosingKind = true,
@@ -401,150 +389,17 @@ class DoVimuViewModel(
     }
 
     fun retrySave(item: DownloadItem) {
-        safeLaunch { saveToDevice(item) }
+        downloads.retrySave(item)
     }
 
     fun cancelJob(item: DownloadItem) {
-        safeLaunch {
-            runCatching { api.cancel(item.jobId) }
-            _state.update { state ->
-                state.copy(jobs = state.jobs.filterNot { it.jobId == item.jobId })
-            }
-        }
+        downloads.cancel(item)
     }
 
     fun dismissError() = _state.update { it.copy(error = null) }
 
-    private suspend fun pollActiveJobs() {
-        val active = _state.value.jobs.filter { it.status in ACTIVE_STATUSES }
-        if (active.isEmpty()) return
-        for (item in active) {
-            if (item.status == "saving") continue
-            try {
-                val remote = api.job(item.jobId)
-                val meta = remote.metadata ?: item.metadata
-                val merged = item.copy(
-                    status = remote.status,
-                    progress = remote.progress.toFloat(),
-                    speedBytes = remote.speedBytes,
-                    etaSeconds = remote.etaSeconds,
-                    error = remote.error,
-                    filename = remote.filename ?: item.filename,
-                    mime = remote.mime ?: item.mime,
-                    downloadUrl = remote.downloadUrl ?: item.downloadUrl,
-                    title = meta?.title ?: remote.title ?: item.title,
-                    artist = meta?.artist ?: item.artist,
-                    album = meta?.album ?: item.album,
-                    metadata = meta,
-                    thumbnail = meta?.thumbnail ?: item.thumbnail,
-                )
-                replaceJob(merged)
-                if (remote.status == "ready" && merged.localUri == null) {
-                    saveToDevice(merged)
-                }
-            } catch (_: Exception) {
-                // keep last known status; next tick retries
-            }
-        }
-    }
-
-    private suspend fun saveToDevice(item: DownloadItem) {
-        if (!savingIds.add(item.jobId)) return
-        replaceJob(item.copy(status = "saving", progress = 0f, error = null))
-        try {
-            val relative = item.downloadUrl ?: "/api/v1/jobs/${item.jobId}/file"
-            val url = _state.value.baseUrl.trimEnd('/') + relative
-            val filename = displayFilename(item)
-            val uri = platform.fileSaver.save(
-                client,
-                url,
-                filename,
-                item.mime,
-                { progress ->
-                    val current = _state.value.jobs.firstOrNull { it.jobId == item.jobId }
-                    if (current != null) {
-                        replaceJob(current.copy(status = "saving", progress = progress))
-                    }
-                },
-                FileMeta(
-                    title = humanizeName(item.metadata?.title ?: item.title).ifBlank { item.title },
-                    artist = humanizeName(item.metadata?.artist ?: item.artist.orEmpty()).ifBlank { null },
-                    album = humanizeName(item.metadata?.album ?: item.album.orEmpty()).ifBlank { null },
-                    albumArtist = humanizeName(item.metadata?.albumArtist.orEmpty()).ifBlank { null },
-                    year = item.metadata?.year,
-                    track = item.metadata?.track,
-                    durationMs = item.metadata?.durationSeconds?.let { it * 1000L }
-                        ?: _state.value.media?.duration?.let { it * 1000L },
-                    width = item.metadata?.width,
-                    height = item.metadata?.height,
-                    lyrics = item.metadata?.lyrics?.trim()?.ifBlank { null },
-                ),
-            )
-            replaceJob(
-                item.copy(status = "saved", progress = 100f, localUri = uri, filename = filename, error = null),
-            )
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            replaceJob(
-                item.copy(
-                    status = "save_failed",
-                    error = e.toUserMessage().ifBlank { "No se pudo guardar el archivo en el teléfono." },
-                ),
-            )
-        } finally {
-            savingIds.remove(item.jobId)
-        }
-    }
-
-    private fun replaceJob(item: DownloadItem) {
-        _state.update { state ->
-            state.copy(jobs = state.jobs.map { if (it.jobId == item.jobId) item else it })
-        }
-    }
-
-    private fun displayFilename(item: DownloadItem): String {
-        val ext = item.filename
-            ?.substringAfterLast('.')
-            ?.takeIf { it.isNotBlank() && it.length <= 5 }
-            ?: if (item.kind == "audio") "mp3" else "mp4"
-        val artist = humanizeName(item.metadata?.artist.orEmpty())
-        val title = humanizeName((item.metadata?.title ?: item.title).ifBlank { "DoVimu" })
-        val stem = if (artist.isNotEmpty() && !title.contains(artist, ignoreCase = true)) {
-            "$artist - $title"
-        } else {
-            title
-        }
-        val cleaned = stem.replace(Regex("""[\\/:*?"<>|]"""), " ")
-            .replace(Regex("\\s+"), " ")
-            .trim()
-            .ifBlank { "DoVimu" }
-        return "$cleaned.$ext"
-    }
-
-    private fun humanizeName(value: String): String {
-        val trimmed = value.trim()
-        if (trimmed.isEmpty()) return ""
-        val text = if ("_-_" in trimmed || (trimmed.count { it == '_' } >= 2 && ' ' !in trimmed)) {
-            trimmed.replace('_', ' ')
-        } else {
-            trimmed
-        }
-        return text.replace(Regex("\\s+"), " ").trim()
-    }
-
     override fun onCleared() {
         client.close()
         super.onCleared()
-    }
-
-    companion object {
-        private val ACTIVE_STATUSES = setOf(
-            "queued",
-            "downloading",
-            "processing",
-            "ready",
-            "saving",
-        )
     }
 }
