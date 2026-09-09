@@ -1,21 +1,37 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+-keepattributes RuntimeVisibleAnnotations,AnnotationDefault,*Annotation*,JavascriptInterface,InnerClasses,Signature,EnclosingMethod
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Shrink unused libraries, but keep all DoVimu classes so release does not crash.
+-keep class com.dovimu.** { *; }
+-keepclassmembers class com.dovimu.** { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keep class com.dovimu.platform.DovimuJsBridge { *; }
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+-keep class dovimu.shared.generated.** { *; }
+-keep class org.jetbrains.compose.resources.** { *; }
+
+-keepclassmembers @kotlinx.serialization.Serializable class ** {
+    *** Companion;
+}
+-if @kotlinx.serialization.Serializable class **
+-keepclassmembers class <1> {
+    static <1>$Companion Companion;
+}
+-if @kotlinx.serialization.Serializable class ** {
+    static **$* *;
+}
+-keepclassmembers class <2>$<3> {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
+-keep class org.jaudiotagger.** { *; }
+-dontwarn org.jaudiotagger.**
+-dontwarn kotlinx.serialization.**
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-dontwarn io.ktor.**
+-dontwarn org.slf4j.**
+-dontwarn coil3.**
+-dontwarn org.jetbrains.compose.**

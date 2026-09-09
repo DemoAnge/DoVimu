@@ -11,7 +11,7 @@ plugins {
 kotlin {
     
     android {
-       namespace = "com.example.dovimu.shared"
+       namespace = "com.dovimu.shared"
        compileSdk = libs.versions.android.compileSdk.get().toInt()
        minSdk = libs.versions.android.minSdk.get().toInt()
     
@@ -34,7 +34,6 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
-            implementation(libs.compose.uiTooling)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.coil.network.okhttp)
             implementation(libs.androidx.core.ktx)
@@ -66,6 +65,3 @@ kotlin {
     }
 }
 
-dependencies {
-    androidRuntimeClasspath(libs.compose.uiTooling)
-}

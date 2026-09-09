@@ -50,7 +50,7 @@
         </activity>
 
         <service
-            android:name="com.example.dovimu.platform.DownloadForegroundService"
+            android:name="com.dovimu.platform.DownloadForegroundService"
             android:exported="false"
             android:foregroundServiceType="dataSync"
             android:stopWithTask="false" />
